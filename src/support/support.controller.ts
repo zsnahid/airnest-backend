@@ -14,4 +14,9 @@ export class SupportController {
   approveVerificationRequest(@Param('requestId') requestId: string) {
     return this.supportService.approveVerificationRequest(requestId);
   }
+
+  @Patch('verification-requests/reject/:requestId')
+  rejectVerificationRequest(@Param('requestId') requestId: string) {
+    return this.supportService.rejectVerificationRequest(requestId);
+  }
 }

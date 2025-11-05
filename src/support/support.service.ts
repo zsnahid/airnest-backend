@@ -31,4 +31,13 @@ export class SupportService {
       }
       return "Verification request not found."
     }
+
+    rejectVerificationRequest(requestId: string): string  {
+      const request = this.mockDbData.find(req => req.requestId === requestId);
+      if (request){
+        request.status = 'REJECTED';
+        return "Verification request rejected."
+      }
+      return "Verification request not found."
+    }
 }
