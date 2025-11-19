@@ -1,13 +1,22 @@
 import { Type } from 'class-transformer';
-import { IsDate, IsNotEmpty, IsString, IsUrl, Matches } from 'class-validator';
+import {
+  IsDate,
+  IsNotEmpty,
+  IsNumber,
+  IsString,
+  IsUrl,
+  Matches,
+} from 'class-validator';
 
 export class UserSignupDto {
+  @IsNotEmpty()
+  @IsNumber({}, { message: 'id must be a number' })
+  id: number;
   // Name field should not contain any numbers
   @IsString()
   @IsNotEmpty()
   @Matches(/^[^0-9]*$/, { message: 'Name should not contain numbers' })
   name: string;
-
   // Password must contain one of the special character (@ or # or $ or &)
   @IsString()
   @IsNotEmpty()
@@ -17,10 +26,10 @@ export class UserSignupDto {
   })
   password: string;
 
-  @Type(() => Date)
-  @IsDate()
-  date: string;
-
   @IsUrl()
   githubLink: string;
+
+  @Type(() => Date)
+  @IsDate({ message: 'Date cannot be string' })
+  createdAt: string;
 }

@@ -1,7 +1,7 @@
 export class VerificationRequestDto {
   requestId: string;
   hostId: string;
-  hostname: string;
+  hostName: string;
   status: 'PENDING' | 'VERIFIED' | 'REJECTED';
-  submittedAt: Date;
+  createdAt: Date;
 }
