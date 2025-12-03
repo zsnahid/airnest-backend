@@ -1,131 +1,197 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { ComplaintResponseDto } from './complaintResponse.dto';
-import { VerificationRequestDto } from './verificationRequest.dto';
+import {
+  Injectable,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { SupportEntity } from './support.entity';
-import { Between, Repository } from 'typeorm';
-import { UserDto } from './user.dto';
+import {
+  SupportTicketEntity,
+  SupportTicketStatus,
+} from './entities/supportTicket.entity';
+import { Repository } from 'typeorm';
+import { TicketMessageEntity } from './entities/ticketMessage.entity';
+import { SupportFeedbackEntity } from './entities/supportFeedback.entity';
+import { CreateTicketDto } from './dtos/createTicket.dto';
+import { UserEntity } from 'src/users/entities/user.entity';
 
 @Injectable()
 export class SupportService {
-  private readonly mockDbData = [
-    {
-      requestId: 'req_001',
-      hostId: 'host_456',
-      hostName: 'Alice Smith',
-      status: 'PENDING',
-      createdAt: new Date('2025-10-25T10:00:00Z'),
-    },
-    {
-      requestId: 'req_002',
-      hostId: 'host_789',
-      hostName: 'Bob Johnson',
-      status: 'PENDING',
-      createdAt: new Date('2025-10-26T14:30:00Z'),
-    },
-  ];
-
-  private readonly mockComplaints = [
-    {
-      messageId: 'msg_001',
-      userId: 'user_123',
-      userName: 'John Doe',
-      subject: 'Problem with my booking',
-      lastMessage: 'I cannot see my confirmed booking in my account.',
-      status: 'OPEN',
-      createdAt: new Date('2025-11-04T09:15:00Z'),
-    },
-    {
-      messageId: 'msg_002',
-      userId: 'user_456',
-      userName: 'Jane Roe',
-      subject: 'Payment issue',
-      lastMessage: 'My payment was declined but the amount was deducted.',
-      status: 'OPEN',
-      createdAt: new Date('2025-11-05T11:00:00Z'),
-    },
-  ];
-
   constructor(
-    @InjectRepository(SupportEntity)
-    private supportRepository: Repository<SupportEntity>,
+    @InjectRepository(SupportTicketEntity)
+    private supportTicketRepository: Repository<SupportTicketEntity>,
+    @InjectRepository(TicketMessageEntity)
+    private ticketMessageRepository: Repository<TicketMessageEntity>,
+    @InjectRepository(SupportFeedbackEntity)
+    private supportFeedbackRepository: Repository<SupportFeedbackEntity>,
   ) {}
 
-  async createUser(userDto: UserDto): Promise<SupportEntity> {
-    const newUser = this.supportRepository.create(userDto);
-    return this.supportRepository.save(newUser);
+  // Create a new ticket
+  async createTicket(ticket: CreateTicketDto): Promise<SupportTicketEntity> {
+    return this.supportTicketRepository.save(ticket);
   }
 
-  async updateCountry(id: number, newCountry: string): Promise<SupportEntity> {
-    const user = await this.supportRepository.findOneBy({ id });
-    if (!user) {
-      throw new NotFoundException(`User with ID ${id} not found!`);
+  // Get all tickets (filterable by status)
+  // If Agent then return all tickets
+  // If Requester then return only his/her tickets
+  // Query param: ?status=OPEN (optional filtering)
+  async getTickets(
+    user: UserEntity,
+    status: SupportTicketStatus | undefined,
+  ): Promise<SupportTicketEntity[]> {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const where: any = {};
+
+    if (user.role === 'REQUESTER') {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      where.user = { id: user.id };
     }
-    user.country = newCountry;
-    return this.supportRepository.save(user);
+
+    if (status) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      where.status = status;
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+    return this.supportTicketRepository.find({ where });
   }
 
-  async findByJoiningDate(date: string): Promise<SupportEntity[]> {
-    // const searchDate = new Date(date);
-
-    const startDate = new Date(date);
-    startDate.setHours(0, 0, 0, 0);
-
-    const endDate = new Date(date);
-    endDate.setHours(23, 59, 59, 999);
-
-    return this.supportRepository.find({
-      where: { joiningDate: Between(startDate, endDate) },
+  // Get ticket details
+  async getTicketById(id: number): Promise<SupportTicketEntity> {
+    const ticket = await this.supportTicketRepository.findOne({
+      where: { id },
+      relations: {
+        messages: true,
+      },
     });
-  }
 
-  async findByCountry(country: string): Promise<SupportEntity[]> {
-    return this.supportRepository.find({ where: { country: country } });
-  }
-
-  getVerificationRequests() {
-    return this.mockDbData;
-  }
-
-  getComplaints() {
-    return this.mockComplaints;
-  }
-
-  createVerificationRequest(verificationRequestDto: VerificationRequestDto) {
-    const newVerificationRequest = { ...verificationRequestDto };
-    this.mockDbData.push(newVerificationRequest);
-  }
-
-  approveVerificationRequest(requestId: string): object {
-    const request = this.mockDbData.find((req) => req.requestId === requestId);
-    if (!request) {
-      //request.status = 'VERIFIED';
-      return { message: 'Request not found' };
+    if (!ticket) {
+      throw new NotFoundException('Ticket not found');
     }
-    request.status = 'VERIFIED';
-    return { status: request.status };
+    return ticket;
   }
 
-  rejectVerificationRequest(requestId: string): string {
-    const request = this.mockDbData.find((req) => req.requestId === requestId);
-    if (request) {
-      request.status = 'REJECTED';
-      return 'Verification request rejected.';
+  // Update ticket status (Agent only)
+  // For an agent to mark a ticket as IN_PROGRESS or CLOSED
+  async updateTicketStatus(
+    id: number,
+    status: SupportTicketStatus,
+  ): Promise<void> {
+    const ticket = await this.supportTicketRepository.findOneBy({ id });
+    if (!ticket) {
+      throw new NotFoundException('Ticket not found');
     }
-    return 'Verification request not found.';
+
+    ticket.status = status;
+    await this.supportTicketRepository.save(ticket);
   }
 
-  sendComplaintResponse(
-    messageId: string,
-    complaintResponseDto: ComplaintResponseDto,
-  ): string {
-    const complaint = this.mockComplaints.find(
-      (cmp) => cmp.messageId === messageId,
-    );
-    if (!complaint) {
-      return 'Complaint not found.';
+  // Send a message on a ticket (both Agent and Requester)
+  // Appends a new message to the conversation
+  async createMessage(
+    ticketId: number,
+    senderId: number,
+    message: string,
+  ): Promise<TicketMessageEntity> {
+    const ticket = await this.supportTicketRepository.findOneBy({
+      id: ticketId,
+    });
+    if (!ticket) {
+      throw new NotFoundException('Ticket not found');
     }
-    complaint.status = 'RESOLVED';
-    return 'Complaint response sent and marked as RESOLVED.';
+
+    if (
+      ticket.status === SupportTicketStatus.CLOSED ||
+      ticket.status === SupportTicketStatus.CANCELLED
+    ) {
+      throw new Error('Cannot send messages to non-OPEN tickets');
+    }
+
+    const newMessage = this.ticketMessageRepository.create({
+      ticketId,
+      senderId,
+      message,
+    });
+
+    ticket.updatedAt = new Date();
+    await this.supportTicketRepository.save(ticket);
+    return this.ticketMessageRepository.save(newMessage);
+  }
+
+  // Update ticket messages only if ticket status is OPEN (both Agent and Requester)
+  /*
+    Find the ticket,
+    Verify its status,
+    Identify the last message,
+    Check if the user making the request is the the sender of that last message,
+    If all conditions are met, update it. 
+  */
+  async updateTicketMessage(
+    id: number,
+    userId: number,
+    message: string,
+  ): Promise<void> {
+    const ticket = await this.supportTicketRepository.findOneBy({ id });
+    if (!ticket) {
+      throw new NotFoundException('Ticket not found');
+    }
+
+    if (ticket.status !== SupportTicketStatus.OPEN) {
+      throw new Error('Cannot update messages for non-OPEN tickets');
+    }
+
+    if (!ticket.messages || ticket.messages.length === 0) {
+      throw new NotFoundException('No messages found for this ticket');
+    }
+
+    const lastMessage = await this.ticketMessageRepository.findOne({
+      where: { ticketId: id },
+      order: { sentAt: 'DESC' },
+    });
+
+    if (lastMessage?.senderId !== userId) {
+      throw new UnauthorizedException('You can only update your own messages');
+    }
+
+    lastMessage.message = message;
+    await this.ticketMessageRepository.save(lastMessage);
+  }
+
+  // Delete a ticket (Agent only)
+  async deleteTicket(id: number): Promise<void> {
+    const ticket = await this.supportTicketRepository.findOneBy({ id });
+    if (!ticket) {
+      throw new NotFoundException('Ticket not found');
+    }
+
+    await this.supportTicketRepository.delete(id);
+  }
+
+  // Submit feedback for a ticket (Requester only)
+  async submitFeedback(
+    ticketId: number,
+    userId: number,
+    rating: number,
+    comments: string | undefined,
+  ): Promise<void> {
+    const ticket = await this.supportTicketRepository.findOneBy({
+      id: ticketId,
+    });
+    if (!ticket) {
+      throw new NotFoundException('Ticket not found');
+    }
+
+    if (ticket.userId !== userId) {
+      throw new UnauthorizedException(
+        'You can only submit feedback for your own tickets',
+      );
+    }
+
+    const newFeedback = this.supportFeedbackRepository.create({
+      ticketId,
+      rating,
+      comments,
+    });
+    ticket.feedback = newFeedback;
+    await this.supportTicketRepository.save(ticket);
   }
 }

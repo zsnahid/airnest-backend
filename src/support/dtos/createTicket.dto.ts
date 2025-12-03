@@ -1,4 +1,4 @@
-import { IsEnum, IsNotEmpty, IsString } from 'class-validator';
+import { IsEnum, IsNotEmpty, IsOptional, IsString } from 'class-validator';
 import { SupportTicketPriority } from '../entities/supportTicket.entity';
 
 export class CreateTicketDto {
@@ -10,6 +10,7 @@ export class CreateTicketDto {
   @IsNotEmpty()
   description: string;
 
+  @IsOptional()
   @IsEnum(SupportTicketPriority)
-  priority: SupportTicketPriority;
+  priority?: SupportTicketPriority;
 }

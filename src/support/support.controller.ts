@@ -1,81 +1,94 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
-  ParseIntPipe,
   Patch,
   Post,
+  Query,
+  Req,
 } from '@nestjs/common';
 import { SupportService } from './support.service';
-import { ComplaintResponseDto } from './complaintResponse.dto';
-import { VerificationRequestDto } from './verificationRequest.dto';
-import { UserDto } from './user.dto';
+import { CreateTicketDto } from './dtos/createTicket.dto';
+import { SupportTicketStatus } from './entities/supportTicket.entity';
 
 @Controller('support')
 export class SupportController {
   constructor(private readonly supportService: SupportService) {}
 
-  @Post('users')
-  createUser(@Body() userDto: UserDto) {
-    return this.supportService.createUser(userDto);
+  // Create a new ticket
+  @Post('tickets')
+  createTicket(@Body() createTicketDto: CreateTicketDto) {
+    return this.supportService.createTicket(createTicketDto);
   }
 
-  @Patch('users/:id/update-country')
-  updateCountry(
-    @Param('id', ParseIntPipe) id: number,
-    @Body('country') newCountry: string,
+  // Get all tickets (filterable by status)
+  @Get('tickets')
+  getTickets(
+    @Req() req: any, // Assuming user is on req; e.g., from a guard
+    @Query('status') status?: SupportTicketStatus,
   ) {
-    return this.supportService.updateCountry(id, newCountry);
+    return this.supportService.getTickets(req.user, status);
   }
 
-  @Get('users/by-joining-date')
-  findByJoiningDate(@Body('joiningDate') joiningDate: string) {
-    return this.supportService.findByJoiningDate(joiningDate);
+  // Get ticket details
+  @Get('tickets/:id')
+  getTicketById(@Param('id') id: number) {
+    return this.supportService.getTicketById(id);
   }
 
-  @Get('users/by-country')
-  findByCountry(@Body('country') country: string) {
-    return this.supportService.findByCountry(country);
-  }
-
-  @Get('verification-requests')
-  getVerificationRequests() {
-    return this.supportService.getVerificationRequests();
-  }
-
-  @Get('complaints')
-  getComplaints() {
-    return this.supportService.getComplaints();
-  }
-
-  @Patch('verification-requests/approve/:requestId')
-  approveVerificationRequest(@Param('requestId') requestId: string) {
-    return this.supportService.approveVerificationRequest(requestId);
-  }
-
-  @Patch('verification-requests/reject/:requestId')
-  rejectVerificationRequest(@Param('requestId') requestId: string) {
-    return this.supportService.rejectVerificationRequest(requestId);
-  }
-
-  @Post('create-verification-request/')
-  createVerificationRequest(
-    @Body() verificationRequestDto: VerificationRequestDto,
+  // Update ticket status (Agent only)
+  @Patch('tickets/:id/status')
+  updateTicketStatus(
+    @Param('id') id: number,
+    @Body('status') status: SupportTicketStatus,
   ) {
-    return this.supportService.createVerificationRequest(
-      verificationRequestDto,
+    return this.supportService.updateTicketStatus(id, status);
+  }
+
+  // Send a message on a ticket
+  @Post('tickets/:id/messages')
+  createMessage(
+    @Param('id') ticketId: number,
+    @Body('message') message: string,
+    @Req() req: any, // Assuming user is on req
+  ) {
+    return this.supportService.createMessage(ticketId, req.user.id, message);
+  }
+
+  // Update the last message on a ticket
+  @Patch('tickets/:id/messages')
+  updateTicketMessage(
+    @Param('id') ticketId: number,
+    @Body('message') message: string,
+    @Req() req: any, // Assuming user is on req
+  ) {
+    return this.supportService.updateTicketMessage(
+      ticketId,
+      req.user.id,
+      message,
     );
   }
 
-  @Post('complaints/:messageId/respond')
-  sendComplaintResponse(
-    @Param('messageId') messageId: string,
-    @Body() complaintResponseDto: ComplaintResponseDto,
+  // Delete a ticket (Agent only)
+  @Delete('tickets/:id')
+  deleteTicket(@Param('id') id: number) {
+    return this.supportService.deleteTicket(id);
+  }
+
+  // Submit feedback for a ticket (Requester only)
+  @Post('tickets/:id/feedback')
+  submitFeedback(
+    @Param('id') ticketId: number,
+    @Body() body: { rating: number; comments?: string },
+    @Req() req: any, // Assuming user is on req
   ) {
-    return this.supportService.sendComplaintResponse(
-      messageId,
-      complaintResponseDto,
+    return this.supportService.submitFeedback(
+      ticketId,
+      req.user.id,
+      body.rating,
+      body.comments,
     );
   }
 }
