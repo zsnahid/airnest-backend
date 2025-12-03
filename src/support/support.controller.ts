@@ -8,10 +8,12 @@ import {
   Post,
   Query,
   Req,
+  UseGuards,
 } from '@nestjs/common';
 import { SupportService } from './support.service';
 import { CreateTicketDto } from './dtos/createTicket.dto';
 import { SupportTicketStatus } from './entities/supportTicket.entity';
+import { AuthGuard } from '../auth/auth.guard';
 
 @Controller('support')
 export class SupportController {
@@ -24,9 +26,10 @@ export class SupportController {
   }
 
   // Get all tickets (filterable by status)
+  @UseGuards(AuthGuard)
   @Get('tickets')
   getTickets(
-    @Req() req: any, // Assuming user is on req; e.g., from a guard
+    @Req() req, // Assuming user is on req; e.g., from a guard
     @Query('status') status?: SupportTicketStatus,
   ) {
     return this.supportService.getTickets(req.user, status);
@@ -48,6 +51,7 @@ export class SupportController {
   }
 
   // Send a message on a ticket
+  @UseGuards(AuthGuard)
   @Post('tickets/:id/messages')
   createMessage(
     @Param('id') ticketId: number,
@@ -58,6 +62,7 @@ export class SupportController {
   }
 
   // Update the last message on a ticket
+  @UseGuards(AuthGuard)
   @Patch('tickets/:id/messages')
   updateTicketMessage(
     @Param('id') ticketId: number,
@@ -78,6 +83,7 @@ export class SupportController {
   }
 
   // Submit feedback for a ticket (Requester only)
+  @UseGuards(AuthGuard)
   @Post('tickets/:id/feedback')
   submitFeedback(
     @Param('id') ticketId: number,
