@@ -13,6 +13,8 @@ import { TicketMessageEntity } from './entities/ticketMessage.entity';
 import { SupportFeedbackEntity } from './entities/supportFeedback.entity';
 import { CreateTicketDto } from './dtos/createTicket.dto';
 import { UserEntity } from 'src/users/entities/user.entity';
+import { TicketResponseDto } from './dtos/ticketResponse.dto';
+import { plainToInstance } from 'class-transformer';
 
 @Injectable()
 export class SupportService {
@@ -37,22 +39,26 @@ export class SupportService {
   async getTickets(
     user: UserEntity,
     status: SupportTicketStatus | undefined,
-  ): Promise<SupportTicketEntity[]> {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ): Promise<TicketResponseDto[]> {
     const where: any = {};
 
+    if (!user) {
+      throw new UnauthorizedException('Invalid token');
+    }
+
     if (user.role === 'REQUESTER') {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       where.user = { id: user.id };
     }
 
     if (status) {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       where.status = status;
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-    return this.supportTicketRepository.find({ where });
+    const tickets = await this.supportTicketRepository.find({ where });
+
+    return plainToInstance(TicketResponseDto, tickets, {
+      excludeExtraneousValues: true,
+    });
   }
 
   // Get ticket details
@@ -187,7 +193,7 @@ export class SupportService {
     }
 
     const newFeedback = this.supportFeedbackRepository.create({
-      ticketId,
+      id: ticketId,
       rating,
       comments,
     });

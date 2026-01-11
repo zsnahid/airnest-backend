@@ -1,4 +1,10 @@
-import { Column, Entity, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
+import {
+  Column,
+  CreateDateColumn,
+  Entity,
+  OneToMany,
+  PrimaryGeneratedColumn,
+} from 'typeorm';
 import { SupportTicketEntity } from '../../support/entities/supportTicket.entity';
 
 @Entity('users')
@@ -15,10 +21,10 @@ export class UserEntity {
   @Column({ type: 'varchar', length: 255 })
   password: string;
 
-  @Column({ type: 'varchar' })
+  @Column({ type: 'varchar', default: 'REQUESTER' })
   role: string; // 'AGENT' or 'REQUESTER'
 
-  @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
+  @CreateDateColumn()
   createdAt: Date;
 
   @OneToMany(() => SupportTicketEntity, (ticket) => ticket.user, {
