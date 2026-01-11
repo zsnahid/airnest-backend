@@ -7,6 +7,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import {
   SupportTicketEntity,
   SupportTicketStatus,
+  SupportTicketPriority,
 } from './entities/supportTicket.entity';
 import { Repository } from 'typeorm';
 import { TicketMessageEntity } from './entities/ticketMessage.entity';
@@ -39,6 +40,7 @@ export class SupportService {
   async getTickets(
     user: UserEntity,
     status: SupportTicketStatus | undefined,
+    priority: SupportTicketPriority | undefined,
   ): Promise<TicketResponseDto[]> {
     const where: any = {};
 
@@ -50,8 +52,12 @@ export class SupportService {
       where.user = { id: user.id };
     }
 
-    if (status) {
+    if (status !== undefined && status !== null) {
       where.status = status;
+    }
+
+    if (priority !== undefined && priority !== null) {
+      where.priority = priority;
     }
 
     const tickets = await this.supportTicketRepository.find({ where });

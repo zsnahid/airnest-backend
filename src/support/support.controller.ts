@@ -12,11 +12,16 @@ import {
 } from '@nestjs/common';
 import { SupportService } from './support.service';
 import { CreateTicketDto } from './dtos/createTicket.dto';
-import { SupportTicketStatus } from './entities/supportTicket.entity';
+import {
+  SupportTicketStatus,
+  SupportTicketPriority,
+} from './entities/supportTicket.entity';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 import { RolesGuard } from 'src/auth/guards/roles.guard';
 import { Roles } from 'src/auth/decorators/roles.decorator';
 import { Role } from 'src/auth/enums/role.enum';
+import { StatusTransformPipe } from './pipes/status-transform.pipe';
+import { PriorityTransformPipe } from './pipes/priority-transform.pipe';
 
 @Controller('support')
 export class SupportController {
@@ -36,9 +41,10 @@ export class SupportController {
   @Get('tickets')
   getTickets(
     @Request() req, // Assuming user is on req; e.g., from a guard
-    @Query('status') status?: SupportTicketStatus,
+    @Query('status', StatusTransformPipe) status?: SupportTicketStatus,
+    @Query('priority', PriorityTransformPipe) priority?: SupportTicketPriority,
   ) {
-    return this.supportService.getTickets(req.user, status);
+    return this.supportService.getTickets(req.user, status, priority);
   }
 
   // Get ticket details
