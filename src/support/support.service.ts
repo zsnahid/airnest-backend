@@ -12,10 +12,10 @@ import {
 import { Repository } from 'typeorm';
 import { TicketMessageEntity } from './entities/ticketMessage.entity';
 import { SupportFeedbackEntity } from './entities/supportFeedback.entity';
-import { CreateTicketDto } from './dtos/createTicket.dto';
 import { UserEntity } from 'src/users/entities/user.entity';
-import { TicketResponseDto } from './dtos/ticketResponse.dto';
+import { SavedTicketDto } from './dtos/savedTicket.dto';
 import { plainToInstance } from 'class-transformer';
+import { CreateTicketParams } from './types/createTicket.params';
 
 @Injectable()
 export class SupportService {
@@ -29,8 +29,12 @@ export class SupportService {
   ) {}
 
   // Create a new ticket
-  async createTicket(ticket: CreateTicketDto): Promise<SupportTicketEntity> {
-    return this.supportTicketRepository.save(ticket);
+  async createTicket(ticket: CreateTicketParams): Promise<SavedTicketDto> {
+    const savedTicket = await this.supportTicketRepository.save(ticket);
+
+    return plainToInstance(SavedTicketDto, savedTicket, {
+      excludeExtraneousValues: true,
+    });
   }
 
   // Get all tickets (filterable by status)
@@ -41,7 +45,7 @@ export class SupportService {
     user: UserEntity,
     status: SupportTicketStatus | undefined,
     priority: SupportTicketPriority | undefined,
-  ): Promise<TicketResponseDto[]> {
+  ): Promise<SavedTicketDto[]> {
     const where: any = {};
 
     if (!user) {
@@ -62,7 +66,7 @@ export class SupportService {
 
     const tickets = await this.supportTicketRepository.find({ where });
 
-    return plainToInstance(TicketResponseDto, tickets, {
+    return plainToInstance(SavedTicketDto, tickets, {
       excludeExtraneousValues: true,
     });
   }
@@ -79,7 +83,13 @@ export class SupportService {
     if (!ticket) {
       throw new NotFoundException('Ticket not found');
     }
-    return ticket;
+
+    // Transform enum numeric values to strings
+    return {
+      ...ticket,
+      status: SupportTicketStatus[ticket.status] as any,
+      priority: SupportTicketPriority[ticket.priority] as any,
+    };
   }
 
   // Update ticket status (Agent only)
@@ -87,14 +97,14 @@ export class SupportService {
   async updateTicketStatus(
     id: number,
     status: SupportTicketStatus,
-  ): Promise<void> {
+  ): Promise<SupportTicketEntity> {
     const ticket = await this.supportTicketRepository.findOneBy({ id });
     if (!ticket) {
       throw new NotFoundException('Ticket not found');
     }
 
     ticket.status = status;
-    await this.supportTicketRepository.save(ticket);
+    return this.supportTicketRepository.save(ticket);
   }
 
   // Send a message on a ticket (both Agent and Requester)
@@ -127,6 +137,13 @@ export class SupportService {
     ticket.updatedAt = new Date();
     await this.supportTicketRepository.save(ticket);
     return this.ticketMessageRepository.save(newMessage);
+  }
+
+  // Get all messages from the system
+  async getAllMessages(): Promise<TicketMessageEntity[]> {
+    return this.ticketMessageRepository.find({
+      order: { sentAt: 'DESC' },
+    });
   }
 
   // Update ticket messages only if ticket status is OPEN (both Agent and Requester)

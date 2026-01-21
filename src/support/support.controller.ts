@@ -29,10 +29,20 @@ export class SupportController {
 
   // Create a new ticket
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.REQUESTER)
+  @Roles(Role.AGENT)
   @Post('tickets')
-  createTicket(@Body() createTicketDto: CreateTicketDto) {
-    return this.supportService.createTicket(createTicketDto);
+  createTicket(
+    @Request() req: any,
+    @Body() createTicketDto: CreateTicketDto,
+    @Body('priority', PriorityTransformPipe)
+    priority?: SupportTicketPriority,
+  ) {
+    return this.supportService.createTicket({
+      ...createTicketDto,
+      priority,
+      userId: req.user.userId,
+    });
+    // return req.user;
   }
 
   // Get all tickets (filterable by status)
@@ -53,13 +63,21 @@ export class SupportController {
     return this.supportService.getTicketById(id);
   }
 
+  // Get ALL messages from the system
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.AGENT)
+  @Get('messages')
+  getAllMessages() {
+    return this.supportService.getAllMessages();
+  }
+
   // Update ticket status (Agent only)
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.AGENT)
   @Patch('tickets/:id/status')
   updateTicketStatus(
     @Param('id') id: number,
-    @Body('status') status: SupportTicketStatus,
+    @Body('status', StatusTransformPipe) status: SupportTicketStatus,
   ) {
     return this.supportService.updateTicketStatus(id, status);
   }
@@ -72,7 +90,7 @@ export class SupportController {
     @Body('message') message: string,
     @Request() req: any, // Assuming user is on req
   ) {
-    return this.supportService.createMessage(ticketId, req.user.id, message);
+    return this.supportService.createMessage(ticketId, req.user.userId, message);
   }
 
   // Update the last message on a ticket
@@ -85,7 +103,7 @@ export class SupportController {
   ) {
     return this.supportService.updateTicketMessage(
       ticketId,
-      req.user.id,
+      req.user.userId,
       message,
     );
   }
@@ -109,7 +127,7 @@ export class SupportController {
   ) {
     return this.supportService.submitFeedback(
       ticketId,
-      req.user.id,
+      req.user.userId,
       body.rating,
       body.comments,
     );

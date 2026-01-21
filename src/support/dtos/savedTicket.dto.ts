@@ -4,7 +4,7 @@ import {
   SupportTicketStatus,
 } from '../entities/supportTicket.entity';
 
-export class TicketResponseDto {
+export class SavedTicketDto {
   @Expose()
   id: number;
 
